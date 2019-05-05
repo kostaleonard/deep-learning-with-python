@@ -4,7 +4,7 @@ import numpy as np
 import os
 import time
 
-os.environ["KERAS_BACKEND"] = "plaidml.keras.backend"
+os.environ['KERAS_BACKEND'] = 'plaidml.keras.backend'
 
 import keras
 import keras.applications as kapp

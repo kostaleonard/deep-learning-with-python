@@ -34,3 +34,10 @@ seconds when `os.environ['KERAS_BACKEND'] = 'plaidml.keras.backend'` is commente
 out. Speedup tends to be best when the network relies on convolutional layers.
 Maybe recurrent layers, too, but I haven't tested that just yet. Try out both on
 your networks and go with whatever is fastest.
+
+## Virtual Environment
+
+See: https://github.com/plaidml/plaidml
+
+Head to the above site, then to the installation instructions section. It will
+give you a per platform guide that is pretty painless.

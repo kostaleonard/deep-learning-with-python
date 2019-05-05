@@ -1,0 +1,4 @@
+plaidbench
+plaidbench/networks
+plaidbench/networks/keras
+plaidbench/networks/ops

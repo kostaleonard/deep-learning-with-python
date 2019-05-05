@@ -1,0 +1,3 @@
+[console_scripts]
+plaidbench = plaidbench.cli:plaidbench
+

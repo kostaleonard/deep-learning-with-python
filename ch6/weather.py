@@ -140,6 +140,28 @@ def evaluate_rnn_stacked(float_data, lookback, step, train_gen, val_gen,
     plot_history(history)
 
 
+def evaluate_rnn_bidirectional(float_data, lookback, step, train_gen, val_gen,
+                               val_steps):
+    """Predicts the temperature using a bidirectional RNN (v3). This
+    architecture doesn't work well for this problem because the most
+    important information in the data is the most recent (i.e. the best
+    predictor of tomorrow's weather is yesterday's weather, not weather
+    from 5 days ago)."""
+    model = Sequential()
+    #model.add(layers.GRU(32, input_shape=(lookback // step, float_data.shape[-1])))
+    model.add(layers.Bidirectional(
+        layers.GRU(32), input_shape=(None, float_data.shape[-1])))
+    model.add(layers.Dense(1))
+    model.compile(optimizer=RMSprop(), loss='mae', metrics=['acc'])
+    print(model.summary())
+    history = model.fit_generator(train_gen,
+                                  steps_per_epoch=500,
+                                  epochs=40,
+                                  validation_data=val_gen,
+                                  validation_steps=val_steps)
+    plot_history(history)
+
+
 def generator(data, lookback, delay, min_index, max_index,
               shuffle=False, batch_size=128, step=6):
     """Generates an infinite stream of data to train or validate the
@@ -229,6 +251,8 @@ def weather_rnn():
     #                     val_steps)
     evaluate_rnn_stacked(float_data, lookback, step, train_gen, val_gen,
                          val_steps)
+    #evaluate_rnn_bidirectional(float_data, lookback, step, train_gen, val_gen,
+    #                           val_steps)
 
 
 def main():

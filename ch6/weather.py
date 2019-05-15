@@ -162,6 +162,47 @@ def evaluate_rnn_bidirectional(float_data, lookback, step, train_gen, val_gen,
     plot_history(history)
 
 
+def evaluate_cnn(float_data, lookback, step, train_gen, val_gen, val_steps):
+    """Predicts the temperature using a 1D CNN (v4)."""
+    model = Sequential()
+    model.add(layers.Conv1D(32, 5, activation='relu',
+                            input_shape=(None, float_data.shape[-1])))
+    model.add(layers.MaxPooling1D(3))
+    model.add(layers.Conv1D(32, 5, acitvation='relu'))
+    model.add(layers.MaxPooling1D(3))
+    model.add(layers.Conv1D(32, 5, activation='relu'))
+    model.add(layers.GlobalMaxPooling1D())
+    model.add(layers.Dense(1))
+    model.compile(optimizer=RMSprop(), loss='mae', metrics=['acc'])
+    print(model.summary())
+    history = model.fit_generator(train_gen,
+                                  steps_per_epoch=500,
+                                  epochs=40,
+                                  validation_data=val_gen,
+                                  validation_steps=val_steps)
+    plot_history(history)
+
+
+def evaluate_cnn_rnn(float_data, lookback, step, train_gen, val_gen, val_steps):
+    """Predicts the temperature using a 1D CNN combined with an RNN
+    (v5)."""
+    model = Sequential()
+    model.add(layers.Conv1D(32, 5, activation='relu',
+                            input_shape=(None, float_data.shape[-1])))
+    model.add(layers.MaxPooling1D(3))
+    model.add(layers.Conv1D(32, 5, acitvation='relu'))
+    model.add(layers.GRU(32, dropout=0.1, recurrent_dropout=0.5))
+    model.add(layers.Dense(1))
+    model.compile(optimizer=RMSprop(), loss='mae', metrics=['acc'])
+    print(model.summary())
+    history = model.fit_generator(train_gen,
+                                  steps_per_epoch=500,
+                                  epochs=20,
+                                  validation_data=val_gen,
+                                  validation_steps=val_steps)
+    plot_history(history)
+
+
 def generator(data, lookback, delay, min_index, max_index,
               shuffle=False, batch_size=128, step=6):
     """Generates an infinite stream of data to train or validate the
@@ -249,10 +290,38 @@ def weather_rnn():
     #                      val_steps)
     #evaluate_rnn_dropout(float_data, lookback, step, train_gen, val_gen,
     #                     val_steps)
-    evaluate_rnn_stacked(float_data, lookback, step, train_gen, val_gen,
-                         val_steps)
+    #evaluate_rnn_stacked(float_data, lookback, step, train_gen, val_gen,
+    #                     val_steps)
     #evaluate_rnn_bidirectional(float_data, lookback, step, train_gen, val_gen,
     #                           val_steps)
+    #evaluate_cnn(float_data, lookback, step, train_gen, val_gen, val_steps)
+    # CNN + RNN can look at higher resolution timeseries data.
+    step = 3
+    train_gen = generator(float_data,
+                          lookback=lookback,
+                          delay=delay,
+                          min_index=0,
+                          max_index=200000,
+                          shuffle=True,
+                          step=step,
+                          batch_size=batch_size)
+    val_gen = generator(float_data,
+                        lookback=lookback,
+                        delay=delay,
+                        min_index=200001,
+                        max_index=300000,
+                        step=step,
+                        batch_size=batch_size)
+    test_gen = generator(float_data,
+                         lookback=lookback,
+                         delay=delay,
+                         min_index=300001,
+                         max_index=None,
+                         step=step,
+                         batch_size=batch_size)
+    val_steps = (300000 - 200001 - lookback) // batch_size
+    test_steps = (len(float_data) - 300001 - lookback) // batch_size
+    evaluate_cnn_rnn(float_data, lookback, step, train_gen, val_gen, val_steps)
 
 
 def main():

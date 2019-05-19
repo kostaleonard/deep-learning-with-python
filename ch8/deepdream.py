@@ -136,13 +136,6 @@ def run_deepdream():
 def main():
     """Runs the program."""
     run_deepdream()
-    '''
-    base_image_path = TEST_IMAGE_2
-    img = preprocess_image(base_image_path)
-    shape = (300, 400)
-    img = resize_img(img, shape)
-    save_img(img, fname='dream_at_scale_{0}.png'.format(str(shape)))
-    '''
 
 
 if __name__ == '__main__':

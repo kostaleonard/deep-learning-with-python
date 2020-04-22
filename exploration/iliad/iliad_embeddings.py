@@ -1,12 +1,13 @@
 # TODO learn the embeddings of all the characters in the Iliad and visualize them in a 2D space.
 # TODO what can we tell from the relationships? What is the relationship of Achilles and Hector? Achilles and Patroclus?
-# TODO take n-combinations of characters, label is whether or not the characters are used in the same RANGE words.
-# TODO before we do characters, we're going to start with n-combinations of non-dictionary words.
+# TODO visualize connections between characters as an adjacency matrix or graph.
+# TODO add the gods to iliad_names.txt
 
 import re
 import itertools
 import random
 import numpy as np
+from graphviz import Graph
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
@@ -17,6 +18,7 @@ DICTIONARY_FILENAME = '../../resources/dictionary_words.txt'
 ILIAD_FILENAME = '../../resources/iliad.txt'
 ILIAD_NAMES_FILENAME = '../../resources/iliad_names.txt'
 DATASET_PREFIX = '../../resources/iliad_embeddings_dataset'
+GRAPH_FILENAME = '../../resources/iliad_relationships'
 RANDOM_SEED = 52017
 TRAIN_SPLIT = 0.7
 VAL_SPLIT = 0.2
@@ -26,7 +28,7 @@ INPUT_SEQUENCE_LENGTH = 2
 WINDOW_SIZE = 200
 EMBEDDING_SIZE = 4
 EPOCHS = 20
-BATCH_SIZE=32
+BATCH_SIZE = 32
 
 
 def get_dictionary_words(dictionary_filename):
@@ -96,7 +98,7 @@ def get_samples(keywords, text):
         proper_nouns_in_window = list(filter(lambda word: word in keywords, list(set(window))))
         proper_noun_window_perms = list(itertools.permutations(proper_nouns_in_window, INPUT_SEQUENCE_LENGTH))
         for tup in proper_noun_window_perms:
-            samples_dict[tup] = 1
+            samples_dict[tup] += 1
     return samples_dict
 
 
@@ -118,7 +120,8 @@ def get_dataset_np_arrays(keylist, keywords, samples):
         for j, keyword in enumerate(sample):
             index = keyword_index[keyword]
             x[i, j] = index
-        y[i] = samples[sample]
+        if samples[sample] > 0:
+            y[i] = 1.0
     return x, y
 
 
@@ -136,6 +139,7 @@ def get_dataset(keywords, text, save_samples=True):
     except FileNotFoundError:
         print('No dataset found; building dataset.')
     samples = get_samples(keywords, text)
+    visualize_graph(samples, keywords)
     shuffled_keys = list(samples.keys())
     random.shuffle(shuffled_keys)
     keys_train = shuffled_keys[:int(len(shuffled_keys) * TRAIN_SPLIT)]
@@ -211,21 +215,48 @@ def plot_history(history, smooth_fac=0.0):
     plt.show()
 
 
+def visualize_graph(samples, keywords):
+    """Displays the graph of connections between keywords. samples is the dict of samples where the key is the
+    combination of INPUT_SEQUENCE_LENGTH keywords, and the value is whether or not those keywords were used in the same
+    window in the text."""
+    g = Graph(name='iliad_relationships')
+    adj = np.zeros((len(keywords), len(keywords)))
+    for i in range(len(keywords)):
+        for j in range(i):
+            kw0 = keywords[i]
+            kw1 = keywords[j]
+            adj[i, j] = samples[(kw0, kw1)]
+            adj[j, i] = samples[(kw0, kw1)]
+    flat_adj = np.sum(adj, axis=-1)
+    flat_adj = np.argsort(flat_adj)[::-1]
+    flat_adj = flat_adj[:10]
+    print(flat_adj)
+    for i in range(len(flat_adj)):
+        for j in range(i):
+            kw0 = keywords[flat_adj[i]]
+            kw1 = keywords[flat_adj[j]]
+            if adj[flat_adj[i], flat_adj[j]] > 0:
+                g.edge(kw0, kw1)
+    print('Rendering graph.')
+    g.render(filename=GRAPH_FILENAME, format='png')
+    print('Done.')
+
+
 def main():
     """Runs the program."""
     random.seed(a=RANDOM_SEED)
     iliad_text = get_file_contents(ILIAD_FILENAME)
     iliad_names = get_lines(ILIAD_NAMES_FILENAME)
-    (x_train, y_train), (x_val, y_val), (x_test, y_test) = get_dataset(iliad_names, iliad_text)
+    (x_train, y_train), (x_val, y_val), (x_test, y_test) = get_dataset(iliad_names, iliad_text, save_samples=False)
     print('Total number of examples: {0}'.format(len(x_train) + len(x_val) + len(x_test)))
     print('Number of training examples: {0}'.format(len(x_train)))
     print('Number of validation examples: {0}'.format(len(x_val)))
     print('Number of test examples: {0}'.format(len(x_test)))
     print('Number of positive examples: {0}'.format(int(sum(y_train) + sum(y_val) + sum(y_test))))
-    model = get_model(iliad_names)
-    model.summary()
-    history = train_model(model, (x_train, y_train), (x_val, y_val))
-    plot_history(history)
+    #model = get_model(iliad_names)
+    #model.summary()
+    #history = train_model(model, (x_train, y_train), (x_val, y_val))
+    #plot_history(history)
 
 
 if __name__ == '__main__':

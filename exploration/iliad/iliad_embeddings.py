@@ -226,17 +226,16 @@ def visualize_graph(samples, keywords):
             kw0 = keywords[i]
             kw1 = keywords[j]
             adj[i, j] = samples[(kw0, kw1)]
-            adj[j, i] = samples[(kw0, kw1)]
-    flat_adj = np.sum(adj, axis=-1)
+    flat_adj = np.reshape(adj, -1)
     flat_adj = np.argsort(flat_adj)[::-1]
-    flat_adj = flat_adj[:10]
+    flat_adj = flat_adj[:20]
     print(flat_adj)
-    for i in range(len(flat_adj)):
-        for j in range(i):
-            kw0 = keywords[flat_adj[i]]
-            kw1 = keywords[flat_adj[j]]
-            if adj[flat_adj[i], flat_adj[j]] > 0:
-                g.edge(kw0, kw1)
+    for k in range(len(flat_adj)):
+        i = flat_adj[k] // len(adj)
+        j = flat_adj[k] % len(adj)
+        kw0 = keywords[i]
+        kw1 = keywords[j]
+        g.edge(kw0, kw1)
     print('Rendering graph.')
     g.render(filename=GRAPH_FILENAME, format='png')
     print('Done.')

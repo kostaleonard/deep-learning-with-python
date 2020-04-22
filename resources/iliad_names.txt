@@ -8,6 +8,7 @@ Agapenor
 Ajax son of Oileus
 Ajax son of Telamon
 Alcimus
+Alexandrus
 Amphimachus
 Amphius
 Anchialus
@@ -19,6 +20,7 @@ Antilochus
 Antimachus
 Antiphates
 Antiphus
+Apollo
 Arcesilaus
 Archelochus
 Areilycus
@@ -46,6 +48,7 @@ Clytius
 Coeranus
 Deidamia
 Deiphobus
+Diana
 Diomede
 Diomedes
 Dolon
@@ -66,6 +69,7 @@ Eurydamas
 Glaucus
 Gorgythion
 Halizones
+Hades
 Hecamede
 Hector
 Hecuba
@@ -75,11 +79,14 @@ Hyperenor
 Iamenus
 Idomeneus
 Ilioneus
+Jove
+Juno
 Laodice
 Leitus
 Leonteus
 Lycaon
 Machaon
+Mars
 Mecisteus
 Medon
 Meges
@@ -87,9 +94,12 @@ Melanippus
 Menelaus
 Menestheus
 Mentes
+Mercury
 Meriones
+Minerva
 Mydon
 Mygdon
+Neptune
 Nestor
 Odysseus
 Othryoneus
@@ -134,4 +144,6 @@ Thrasymedes
 Thymoetes
 Tlepolemus
 Ucalegon
+Venus
+Vulcan
 Xanthus

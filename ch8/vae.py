@@ -67,7 +67,7 @@ def main():
                 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
             return K.mean(xent_loss + kl_loss)
 
-        def call(self, inputs):
+        def call(self, inputs, **kwargs):
             """Overrides call method in Layer."""
             x = inputs[0]
             z_decoded = inputs[1]
@@ -82,7 +82,7 @@ def main():
     # This is also why we don't need to pass labels into the fit function.
     vae.compile(optimizer='rmsprop', loss=None)
     print(vae.summary())
-    (x_train, _), (x_test, y_test) = mnist.load_data()
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
     x_train = x_train.astype('float32') / 255.
     x_train = x_train.reshape(x_train.shape + (1,))
     x_test = x_test.astype('float32') / 255.

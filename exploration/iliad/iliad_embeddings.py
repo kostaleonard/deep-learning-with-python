@@ -309,14 +309,14 @@ def main():
     print('Number of validation examples: {0}'.format(len(x_val)))
     print('Number of test examples: {0}'.format(len(x_test)))
     print('Number of positive examples: {0}'.format(int(sum(y_train) + sum(y_val) + sum(y_test))))
-    #model = get_model(iliad_names)
-    #model.summary()
-    #history = train_model(model, (x_train, y_train), (x_val, y_val))
-    #plot_history(history)
     model = get_multi_output_model(iliad_names)
     model.summary()
     history = train_mulit_output_model(model, (x_train, y_train), (x_val, y_val))
-    plot_multi_output_history(history)
+    #plot_multi_output_history(history)
+    x = np.zeros((1, INPUT_SEQUENCE_LENGTH))
+    preds = model.predict(x)
+    word_embeddings = preds[0]
+    print(word_embeddings)
 
 
 if __name__ == '__main__':

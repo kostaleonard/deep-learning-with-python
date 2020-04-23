@@ -1,7 +1,5 @@
 # TODO learn the embeddings of all the characters in the Iliad and visualize them in a 2D space.
 # TODO what can we tell from the relationships? What is the relationship of Achilles and Hector? Achilles and Patroclus?
-# TODO visualize connections between characters as an adjacency matrix or graph.
-# TODO add the gods to iliad_names.txt
 
 import re
 import itertools
@@ -11,14 +9,16 @@ from graphviz import Graph
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
-from keras.models import Sequential
-from keras.layers import Flatten, Dense, Embedding
+from keras.models import Sequential, Model
+from keras.layers import Flatten, Dense, Embedding, Input
 
 DICTIONARY_FILENAME = '../../resources/dictionary_words.txt'
 ILIAD_FILENAME = '../../resources/iliad.txt'
 ILIAD_NAMES_FILENAME = '../../resources/iliad_names.txt'
 DATASET_PREFIX = '../../resources/iliad_embeddings_dataset'
 GRAPH_FILENAME = '../../resources/iliad_relationships'
+# TODO deities flag.
+INCLUDE_DEITIES = True
 RANDOM_SEED = 52017
 TRAIN_SPLIT = 0.7
 VAL_SPLIT = 0.2
@@ -26,7 +26,7 @@ TEST_SPLIT = 1.0 - TRAIN_SPLIT - VAL_SPLIT
 # Hyperparameters.
 INPUT_SEQUENCE_LENGTH = 2
 WINDOW_SIZE = 200
-EMBEDDING_SIZE = 4
+EMBEDDING_SIZE = 2
 EPOCHS = 20
 BATCH_SIZE = 32
 
@@ -169,6 +169,24 @@ def get_model(keywords):
     return model
 
 
+def get_multi_output_model(keywords):
+    """Returns the model as an instance of keras.models.Model. The returned model will have 2 outputs: the embeddings
+    and the classifier results. This allows us to read the embeddings. Embeddings do not contribute to model loss."""
+    input_layer = Input(shape=(INPUT_SEQUENCE_LENGTH,))
+    embedding_layer = Embedding(len(keywords), EMBEDDING_SIZE, input_length=INPUT_SEQUENCE_LENGTH,
+                                name='embedding')(input_layer)
+    flatten_layer = Flatten()(embedding_layer)
+    dense_layer = Dense(1, activation='sigmoid', name='classification')(flatten_layer)
+    model = Model(input_layer, [embedding_layer, dense_layer])
+    model.compile(optimizer='rmsprop',
+                  loss={'classification': 'binary_crossentropy',
+                        'embedding': 'mse'},
+                  loss_weights={'classification': 1.0,
+                                'embedding': 0.0},
+                  metrics=['acc'])
+    return model
+
+
 def train_model(model, train_dataset, val_dataset):
     """Trains the model on the dataset. Returns the history."""
     x_train, y_train = train_dataset
@@ -177,6 +195,23 @@ def train_model(model, train_dataset, val_dataset):
                         epochs=EPOCHS,
                         batch_size=BATCH_SIZE,
                         validation_data=(x_val, y_val))
+    return history
+
+
+def train_mulit_output_model(model, train_dataset, val_dataset):
+    """Trains the model on the dataset. Returns the history."""
+    x_train, y_train = train_dataset
+    x_val, y_val = val_dataset
+    embedding_dummy_labels_train = np.zeros((y_train.shape[0], INPUT_SEQUENCE_LENGTH, EMBEDDING_SIZE))
+    embedding_dummy_labels_val = np.zeros((y_val.shape[0], INPUT_SEQUENCE_LENGTH, EMBEDDING_SIZE))
+    history = model.fit(x_train,
+                        {'classification': y_train,
+                         'embedding': embedding_dummy_labels_train},
+                        epochs=EPOCHS,
+                        batch_size=BATCH_SIZE,
+                        validation_data=(x_val,
+                                         {'classification': y_val,
+                                          'embedding': embedding_dummy_labels_val}))
     return history
 
 
@@ -215,6 +250,29 @@ def plot_history(history, smooth_fac=0.0):
     plt.show()
 
 
+def plot_multi_output_history(history, smooth_fac=0.0):
+    """Plots the given history object."""
+    acc = history.history['classification_acc']
+    val_acc = history.history['val_classification_acc']
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+    epochs = range(1, len(acc) + 1)
+    plt.plot(epochs, smooth_curve(acc, factor=smooth_fac), 'bo',
+             label='Smoothed training acc')
+    plt.plot(epochs, smooth_curve(val_acc, factor=smooth_fac), 'b',
+             label='Smoothed validation acc')
+    plt.title('Training and validation accuracy, smoothing = {0}'.format(
+        smooth_fac))
+    plt.legend()
+    plt.figure()
+    plt.plot(epochs, smooth_curve(loss), 'bo', label='Smoothed training loss')
+    plt.plot(epochs, smooth_curve(val_loss), 'b',
+             label='Smoothed validation loss')
+    plt.title('Training and validation loss, smoothing = {0}'.format(smooth_fac))
+    plt.legend()
+    plt.show()
+
+
 def visualize_graph(samples, keywords):
     """Displays the graph of connections between keywords. samples is the dict of samples where the key is the
     combination of INPUT_SEQUENCE_LENGTH keywords, and the value is whether or not those keywords were used in the same
@@ -228,8 +286,7 @@ def visualize_graph(samples, keywords):
             adj[i, j] = samples[(kw0, kw1)]
     flat_adj = np.reshape(adj, -1)
     flat_adj = np.argsort(flat_adj)[::-1]
-    flat_adj = flat_adj[:20]
-    print(flat_adj)
+    flat_adj = flat_adj[:30]
     for k in range(len(flat_adj)):
         i = flat_adj[k] // len(adj)
         j = flat_adj[k] % len(adj)
@@ -246,7 +303,7 @@ def main():
     random.seed(a=RANDOM_SEED)
     iliad_text = get_file_contents(ILIAD_FILENAME)
     iliad_names = get_lines(ILIAD_NAMES_FILENAME)
-    (x_train, y_train), (x_val, y_val), (x_test, y_test) = get_dataset(iliad_names, iliad_text, save_samples=False)
+    (x_train, y_train), (x_val, y_val), (x_test, y_test) = get_dataset(iliad_names, iliad_text)
     print('Total number of examples: {0}'.format(len(x_train) + len(x_val) + len(x_test)))
     print('Number of training examples: {0}'.format(len(x_train)))
     print('Number of validation examples: {0}'.format(len(x_val)))
@@ -256,6 +313,10 @@ def main():
     #model.summary()
     #history = train_model(model, (x_train, y_train), (x_val, y_val))
     #plot_history(history)
+    model = get_multi_output_model(iliad_names)
+    model.summary()
+    history = train_mulit_output_model(model, (x_train, y_train), (x_val, y_val))
+    plot_multi_output_history(history)
 
 
 if __name__ == '__main__':

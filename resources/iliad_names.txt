@@ -101,7 +101,6 @@ Mydon
 Mygdon
 Neptune
 Nestor
-Odysseus
 Othryoneus
 Pandarus
 Panthous
@@ -144,6 +143,7 @@ Thrasymedes
 Thymoetes
 Tlepolemus
 Ucalegon
+Ulysses
 Venus
 Vulcan
 Xanthus

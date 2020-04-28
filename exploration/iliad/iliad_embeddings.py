@@ -21,7 +21,8 @@ EMBEDDINGS_PLOT_FILENAME = '../../resources/iliad_embeddings.png'
 # TODO deities flag.
 INCLUDE_DEITIES = True
 EMBEDDING_NAME_FILTER = {
-    'achilles', 'hector', 'priam', 'jove', 'juno', 'minerva', 'patroclus', 'neptune', 'menelaus', 'agamemnon'
+    #'achilles', 'hector', 'priam', 'jove', 'juno', 'minerva', 'patroclus', 'neptune', 'menelaus', 'agamemnon'
+    'achilles', 'hector', 'priam', 'jove', 'minerva', 'patroclus', 'menelaus', 'agamemnon', 'ulysses', 'mars'
 }
 RANDOM_SEED = 52017
 TRAIN_SPLIT = 0.7
@@ -314,11 +315,11 @@ def visualize_embeddings(keywords, model, name_filter=None):
         model_input[i, 0] = kw_index
     preds = model.predict(model_input)
     word_embeddings = np.array([arr[0] for arr in preds[0]])
-    print(word_embeddings)
     if word_embeddings.shape[1] != 2:
         raise NotImplementedError('t-SNE not yet implemented.')
     for i, row in enumerate(word_embeddings):
         plt.scatter(row[0], row[1], label=zipped_keywords[i][1])
+        print('{0}:\t[{1:.3f}, {2:.3f}]'.format(zipped_keywords[i][1], row[0], row[1]))
     plt.xlim([-1.5, 1.5])
     plt.ylim([-1.5, 1.5])
     plt.xlabel('Embedding Dimension 0')

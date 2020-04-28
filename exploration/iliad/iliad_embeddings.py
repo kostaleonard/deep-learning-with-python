@@ -17,8 +17,12 @@ ILIAD_FILENAME = '../../resources/iliad.txt'
 ILIAD_NAMES_FILENAME = '../../resources/iliad_names.txt'
 DATASET_PREFIX = '../../resources/iliad_embeddings_dataset'
 GRAPH_FILENAME = '../../resources/iliad_relationships'
+EMBEDDINGS_PLOT_FILENAME = '../../resources/iliad_embeddings.png'
 # TODO deities flag.
 INCLUDE_DEITIES = True
+EMBEDDING_NAME_FILTER = {
+    'achilles', 'hector', 'priam', 'jove', 'juno', 'minerva', 'patroclus', 'neptune', 'menelaus', 'agamemnon'
+}
 RANDOM_SEED = 52017
 TRAIN_SPLIT = 0.7
 VAL_SPLIT = 0.2
@@ -298,6 +302,32 @@ def visualize_graph(samples, keywords):
     print('Done.')
 
 
+def visualize_embeddings(keywords, model, name_filter=None):
+    """Displays the embeddings on a 2D plot. The name_filter argument can be optionally supplied to limit the number of
+    keywords that are plotted; the argument should be a set of string names."""
+    if name_filter:
+        zipped_keywords = [(i, kw) for (i, kw) in enumerate(keywords) if kw in name_filter]
+    else:
+        zipped_keywords = [(i, kw) for (i, kw) in enumerate(keywords)]
+    model_input = np.zeros((len(zipped_keywords), INPUT_SEQUENCE_LENGTH))
+    for i, (kw_index, kw) in enumerate(zipped_keywords):
+        model_input[i, 0] = kw_index
+    preds = model.predict(model_input)
+    word_embeddings = np.array([arr[0] for arr in preds[0]])
+    print(word_embeddings)
+    if word_embeddings.shape[1] != 2:
+        raise NotImplementedError('t-SNE not yet implemented.')
+    for i, row in enumerate(word_embeddings):
+        plt.scatter(row[0], row[1], label=zipped_keywords[i][1])
+    plt.xlim([-1.5, 1.5])
+    plt.ylim([-1.5, 1.5])
+    plt.xlabel('Embedding Dimension 0')
+    plt.ylabel('Embedding Dimension 1')
+    plt.title('Embeddings of Key Character Names in the Iliad')
+    plt.legend(bbox_to_anchor=(1.04, 1), loc='upper left', ncol=1)
+    plt.savefig(EMBEDDINGS_PLOT_FILENAME, bbox_inches="tight")
+
+
 def main():
     """Runs the program."""
     random.seed(a=RANDOM_SEED)
@@ -313,10 +343,10 @@ def main():
     model.summary()
     history = train_mulit_output_model(model, (x_train, y_train), (x_val, y_val))
     #plot_multi_output_history(history)
-    x = np.zeros((1, INPUT_SEQUENCE_LENGTH))
-    preds = model.predict(x)
-    word_embeddings = preds[0]
-    print(word_embeddings)
+    visualize_embeddings(iliad_names, model, name_filter=EMBEDDING_NAME_FILTER)
+    #visualize_embeddings(iliad_names, model)
+    # TODO t-SNE if not 2D already
+    # TODO plot embeddings
 
 
 if __name__ == '__main__':

@@ -12,12 +12,12 @@ import matplotlib.pyplot as plt
 from keras.models import Sequential, Model
 from keras.layers import Flatten, Dense, Embedding, Input
 
-DICTIONARY_FILENAME = '../../resources/dictionary_words.txt'
-ILIAD_FILENAME = '../../resources/iliad.txt'
-ILIAD_NAMES_FILENAME = '../../resources/iliad_names.txt'
-DATASET_PREFIX = '../../resources/iliad_embeddings_dataset'
-GRAPH_FILENAME = '../../resources/iliad_relationships'
-EMBEDDINGS_PLOT_FILENAME = '../../resources/iliad_embeddings.png'
+DICTIONARY_FILENAME = '../../resources/iliad/dictionary_words.txt'
+ILIAD_FILENAME = '../../resources/iliad/iliad.txt'
+ILIAD_NAMES_FILENAME = '../../resources/iliad/iliad_names.txt'
+DATASET_PREFIX = '../../resources/iliad/iliad_embeddings_dataset'
+GRAPH_FILENAME = '../../resources/iliad/iliad_relationships'
+EMBEDDINGS_PLOT_FILENAME = '../../resources/iliad/iliad_embeddings.png'
 # TODO deities flag.
 INCLUDE_DEITIES = True
 EMBEDDING_NAME_FILTER = {

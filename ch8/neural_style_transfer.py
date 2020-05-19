@@ -40,7 +40,7 @@ def deprocess_image(x):
 def content_loss(base, combination):
     """Returns the content loss between the base and combination. This
     makes sure that the top layer of VGG19 has a similar view of the
-    target image and the generated image."""
+    target image and the generated-genomes image."""
     return K.sum(K.square(combination - base))
 
 
@@ -64,7 +64,7 @@ def style_loss(style, combination):
 
 def total_variation_loss(x):
     """Returns the total variation loss, which operates on the pixels of
-    the generated image. Encourages spatial continuity, avoiding overly
+    the generated-genomes image. Encourages spatial continuity, avoiding overly
     pixelated results."""
     a = K.square(
         x[:, :img_height - 1, :img_width - 1, :] -

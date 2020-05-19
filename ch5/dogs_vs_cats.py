@@ -1,7 +1,7 @@
 # Leonard R. Kosta Jr.
 
 import os
-#os.environ['KERAS_BACKEND'] = 'plaidml.keras.backend'
+os.environ['KERAS_BACKEND'] = 'plaidml.keras.backend'
 
 from keras import backend as K
 from keras import layers

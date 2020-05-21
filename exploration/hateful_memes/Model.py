@@ -1,5 +1,3 @@
-# Leonard R. Kosta Jr.
-
 import os
 #os.environ['KERAS_BACKEND'] = 'plaidml.keras.backend'
 
@@ -16,18 +14,29 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import time
+from datetime import datetime
 import numpy as np
 import shutil
 import cv2
 import json
-from exploration.hateful_memes.DataGenerator import DataGenerator
 # If you don't have plaidml, get rid of this line and the try-except:
 from plaidml.exceptions import Unknown
 
 DATASET_BASE_DIR = '/Users/leo/Documents/Datasets/hateful_memes_data'
 RAW_IMAGE_DIR = os.path.join(DATASET_BASE_DIR, 'img')
+TRAIN_IMAGE_DIR = os.path.join(DATASET_BASE_DIR, 'train')
+TRAIN_IMAGE_POS_DIR = os.path.join(TRAIN_IMAGE_DIR, 'pos')
+TRAIN_IMAGE_NEG_DIR = os.path.join(TRAIN_IMAGE_DIR, 'neg')
+DEV_IMAGE_DIR = os.path.join(DATASET_BASE_DIR, 'dev')
+DEV_IMAGE_POS_DIR = os.path.join(DEV_IMAGE_DIR, 'pos')
+DEV_IMAGE_NEG_DIR = os.path.join(DEV_IMAGE_DIR, 'neg')
+TEST_IMAGE_DIR = os.path.join(DATASET_BASE_DIR, 'test')
+TEST_IMAGE_POS_DIR = os.path.join(TEST_IMAGE_DIR, 'pos')
+TEST_IMAGE_NEG_DIR = os.path.join(TEST_IMAGE_DIR, 'neg')
 MODEL_SAVE_DIR = '/Users/leo/PycharmProjects/py_deep_learning/resources/hateful_memes/saved_models'
 PREDICTION_OUTPUT_DIR = '/Users/leo/PycharmProjects/py_deep_learning/resources/hateful_memes/predictions'
+EPOCHS = 10
+BATCH_SIZE = 20
 
 
 def smooth_curve(points, factor=0.8):
@@ -76,118 +85,63 @@ def deprocess_image(x):
     return x
 
 
-def run_model_from_scratch():
-    """Builds and runs a model from scratch."""
-    '''
-    train_datagen = ImageDataGenerator(
-        rescale=1. / 255,
-        rotation_range=40,
-        width_shift_range=0.2,
-        height_shift_range=0.2,
-        shear_range=0.2,
-        zoom_range=0.2,
-        horizontal_flip=True)
-    test_datagen = ImageDataGenerator(rescale=1. / 255)
-    train_generator = train_datagen.flow_from_directory(
-        train_dir,
-        target_size=(150, 150),
-        batch_size=32,
-        class_mode='binary')
-    validation_generator = test_datagen.flow_from_directory(
-        validation_dir,
-        target_size=(150, 150),
-        batch_size=32,
-        class_mode='binary')
-    # Check generators.
-    for data_batch, labels_batch in train_generator:
-        print('Data batch shape: {0}'.format(data_batch.shape))
-        print('Labels batch shape: {0}'.format(labels_batch.shape))
-        break
-    model = get_model_from_scratch()
-    start = time.time()
-    history = model.fit_generator(
-        train_generator,
-        steps_per_epoch=100,
-        epochs=100,
-        validation_data=validation_generator,
-        validation_steps=50)
-    stop = time.time()
-    print('Training time: {0}'.format(stop - start))
-    model_fname = os.path.join(MODEL_SAVE_DIR, 'cats_and_dogs_small_2.h5')
-    model.save(model_fname)
-    plot_history(history)
-    '''
-
-
-def build_dataset(download_dir=DATASET_BASE_DIR):
-    """Builds the dataset from the download directory. Data available on
-    Kaggle."""
-    original_dataset_dir = os.path.join(download_dir, 'train')
-    base_dir = DATASET_BASE_DIR
-    os.mkdir(base_dir)
-    train_dir = os.path.join(base_dir, 'train')
-    os.mkdir(train_dir)
-    validation_dir = os.path.join(base_dir, 'validation')
-    os.mkdir(validation_dir)
-    test_dir = os.path.join(base_dir, 'test')
-    os.mkdir(test_dir)
-    train_cats_dir = os.path.join(train_dir, 'cats')
-    os.mkdir(train_cats_dir)
-    train_dogs_dir = os.path.join(train_dir, 'dogs')
-    os.mkdir(train_dogs_dir)
-    validation_cats_dir = os.path.join(validation_dir, 'cats')
-    os.mkdir(validation_cats_dir)
-    validation_dogs_dir = os.path.join(validation_dir, 'dogs')
-    os.mkdir(validation_dogs_dir)
-    test_cats_dir = os.path.join(test_dir, 'cats')
-    os.mkdir(test_cats_dir)
-    test_dogs_dir = os.path.join(test_dir, 'dogs')
-    os.mkdir(test_dogs_dir)
-
-    fnames = ['cat.{}.jpg'.format(i) for i in range(1000)]
-    for fname in fnames:
-        src = os.path.join(original_dataset_dir, fname)
-        dst = os.path.join(train_cats_dir, fname)
+def build_dataset(partition, labels):
+    """Builds the dataset from the download directory. The partition
+    defines the image files used in training, development, and testing."""
+    if not os.path.exists(TRAIN_IMAGE_DIR):
+        os.mkdir(TRAIN_IMAGE_DIR)
+    if not os.path.exists(TRAIN_IMAGE_POS_DIR):
+        os.mkdir(TRAIN_IMAGE_POS_DIR)
+    if not os.path.exists(TRAIN_IMAGE_NEG_DIR):
+        os.mkdir(TRAIN_IMAGE_NEG_DIR)
+    if not os.path.exists(DEV_IMAGE_DIR):
+        os.mkdir(DEV_IMAGE_DIR)
+    if not os.path.exists(DEV_IMAGE_POS_DIR):
+        os.mkdir(DEV_IMAGE_POS_DIR)
+    if not os.path.exists(DEV_IMAGE_NEG_DIR):
+        os.mkdir(DEV_IMAGE_NEG_DIR)
+    if not os.path.exists(TEST_IMAGE_DIR):
+        os.mkdir(TEST_IMAGE_DIR)
+    if not os.path.exists(TEST_IMAGE_POS_DIR):
+        os.mkdir(TEST_IMAGE_POS_DIR)
+    if not os.path.exists(TEST_IMAGE_NEG_DIR):
+        os.mkdir(TEST_IMAGE_NEG_DIR)
+    num_existing_train = len(os.listdir(TRAIN_IMAGE_POS_DIR)) + \
+        len(os.listdir(TRAIN_IMAGE_NEG_DIR))
+    num_existing_dev = len(os.listdir(DEV_IMAGE_POS_DIR)) + \
+        len(os.listdir(DEV_IMAGE_NEG_DIR))
+    num_existing_test = len(os.listdir(TEST_IMAGE_POS_DIR)) + \
+        len(os.listdir(TEST_IMAGE_NEG_DIR))
+    if num_existing_train == len(partition['train']) and \
+            num_existing_dev == len(partition['dev']) and \
+            num_existing_test == len(partition['test']):
+        print('Dataset appears to be built already; skipping build.')
+        return
+    for fname in partition['train']:
+        src = os.path.join(RAW_IMAGE_DIR, fname)
+        if labels[fname] == 1:
+            dst = os.path.join(TRAIN_IMAGE_POS_DIR, fname)
+        else:
+            dst = os.path.join(TRAIN_IMAGE_NEG_DIR, fname)
         shutil.copyfile(src, dst)
-    fnames = ['cat.{}.jpg'.format(i) for i in range(1000, 1500)]
-    for fname in fnames:
-        src = os.path.join(original_dataset_dir, fname)
-        dst = os.path.join(validation_cats_dir, fname)
+    for fname in partition['dev']:
+        src = os.path.join(RAW_IMAGE_DIR, fname)
+        if labels[fname] == 1:
+            dst = os.path.join(DEV_IMAGE_POS_DIR, fname)
+        else:
+            dst = os.path.join(DEV_IMAGE_NEG_DIR, fname)
         shutil.copyfile(src, dst)
-    fnames = ['cat.{}.jpg'.format(i) for i in range(1500, 2000)]
-    for fname in fnames:
-        src = os.path.join(original_dataset_dir, fname)
-        dst = os.path.join(test_cats_dir, fname)
+    for fname in partition['test']:
+        src = os.path.join(RAW_IMAGE_DIR, fname)
+        # They didn't give us the labels for the test data, so this is just to make the generator work.
+        dst = os.path.join(TEST_IMAGE_NEG_DIR, fname)
         shutil.copyfile(src, dst)
-
-    fnames = ['dog.{}.jpg'.format(i) for i in range(1000)]
-    for fname in fnames:
-        src = os.path.join(original_dataset_dir, fname)
-        dst = os.path.join(train_dogs_dir, fname)
-        shutil.copyfile(src, dst)
-    fnames = ['dog.{}.jpg'.format(i) for i in range(1000, 1500)]
-    for fname in fnames:
-        src = os.path.join(original_dataset_dir, fname)
-        dst = os.path.join(validation_dogs_dir, fname)
-        shutil.copyfile(src, dst)
-    fnames = ['dog.{}.jpg'.format(i) for i in range(1500, 2000)]
-    for fname in fnames:
-        src = os.path.join(original_dataset_dir, fname)
-        dst = os.path.join(test_dogs_dir, fname)
-        shutil.copyfile(src, dst)
-
-    print('Total training cat images: {0}'.format(len(os.listdir(
-        train_cats_dir))))
-    print('Total training dog images: {0}'.format(len(os.listdir(
-        train_dogs_dir))))
-    print('Total validation cat images: {0}'.format(len(os.listdir(
-        validation_cats_dir))))
-    print('Total validation dog images: {0}'.format(len(os.listdir(
-        validation_dogs_dir))))
-    print('Total test cat images: {0}'.format(len(os.listdir(
-        test_cats_dir))))
-    print('Total test dog images: {0}'.format(len(os.listdir(
-        test_dogs_dir))))
+    print('Total training images: {0}'.format(len(os.listdir(
+        TRAIN_IMAGE_DIR))))
+    print('Total dev images: {0}'.format(len(os.listdir(
+        DEV_IMAGE_DIR))))
+    print('Total test images: {0}'.format(len(os.listdir(
+        TEST_IMAGE_DIR))))
 
 
 def get_values_and_labels(json_filename):
@@ -227,6 +181,48 @@ def get_partition_and_labels():
     return partition, labels
 
 
+def train_model(model, partition, augment=False, debug=False):
+    """Trains the model."""
+    if augment:
+        train_datagen = ImageDataGenerator(
+            rescale=1. / 255,
+            rotation_range=40,
+            width_shift_range=0.2,
+            height_shift_range=0.2,
+            shear_range=0.2,
+            zoom_range=0.2,
+            horizontal_flip=False)
+    else:
+        train_datagen = ImageDataGenerator(rescale=1. / 255)
+    test_datagen = ImageDataGenerator(rescale=1. / 255)
+    train_generator = train_datagen.flow_from_directory(
+        TRAIN_IMAGE_DIR,
+        target_size=(150, 150),
+        batch_size=BATCH_SIZE,
+        class_mode='binary')
+    dev_generator = test_datagen.flow_from_directory(
+        DEV_IMAGE_DIR,
+        target_size=(150, 150),
+        batch_size=BATCH_SIZE,
+        class_mode='binary')
+    if debug:
+        data_batch, labels_batch = train_generator.next()
+        print('Data batch shape: {0}'.format(data_batch.shape))
+        print('Labels batch shape: {0}'.format(labels_batch.shape))
+    start = time.time()
+    history = model.fit_generator(
+        train_generator,
+        steps_per_epoch=len(partition['train']) // BATCH_SIZE,
+        epochs=EPOCHS,
+        validation_data=dev_generator,
+        validation_steps=len(partition['dev']) // BATCH_SIZE)
+    stop = time.time()
+    print('Training time: {0}'.format(stop - start))
+    model_fname = os.path.join(MODEL_SAVE_DIR, str(datetime.now()).replace(' ', '_'))
+    model.save(model_fname)
+    plot_history(history)
+
+
 def main():
     """Runs the program."""
     partition, labels = get_partition_and_labels()
@@ -234,13 +230,9 @@ def main():
     print('Validation examples: {0}'.format(len(partition['dev'])))
     print('Test examples: {0}'.format(len(partition['test'])))
     print('Fraction positive examples (train, val only): {0}/{1}'.format(sum(labels.values()), len(labels.keys())))
-    #train_generator = DataGenerator(['01235.png'], {'01235.png': 0}, (200, 200, 3), RAW_IMAGE_DIR, 2, batch_size=32)
-    # TODO need to memoize the image batches because it is very expensive to constantly load and transform the images.
-    # TODO could just use the keras ImageDataGenerator, but need to pay overhead of organizing images.
-    train_generator = DataGenerator(partition['train'], labels, (200, 200, 3), RAW_IMAGE_DIR, 2, batch_size=999)
-    for data_batch, labels_batch in train_generator:
-        print(data_batch.shape)
-        print(labels_batch.shape)
+    build_dataset(partition, labels)
+    # TODO just need the model
+    train_model(None, partition)
 
 
 if __name__ == '__main__':

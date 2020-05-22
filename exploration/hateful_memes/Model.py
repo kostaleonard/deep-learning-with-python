@@ -1,10 +1,11 @@
 import os
-#os.environ['KERAS_BACKEND'] = 'plaidml.keras.backend'
+os.environ['KERAS_BACKEND'] = 'plaidml.keras.backend'
 
 from keras import backend as K
 from keras import layers
 from keras import models
 from keras import optimizers
+from keras.models import Sequential
 from keras.models import load_model
 from keras.applications import VGG16
 from keras.applications.vgg16 import preprocess_input, decode_predictions
@@ -37,6 +38,9 @@ MODEL_SAVE_DIR = '/Users/leo/PycharmProjects/py_deep_learning/resources/hateful_
 PREDICTION_OUTPUT_DIR = '/Users/leo/PycharmProjects/py_deep_learning/resources/hateful_memes/predictions'
 EPOCHS = 10
 BATCH_SIZE = 20
+IMAGE_SCALE_SIZE = (150, 150)
+NUM_CHANNELS = 3
+MODEL_INPUT_DIM = IMAGE_SCALE_SIZE + (NUM_CHANNELS,)
 
 
 def smooth_curve(points, factor=0.8):
@@ -197,12 +201,12 @@ def train_model(model, partition, augment=False, debug=False):
     test_datagen = ImageDataGenerator(rescale=1. / 255)
     train_generator = train_datagen.flow_from_directory(
         TRAIN_IMAGE_DIR,
-        target_size=(150, 150),
+        target_size=IMAGE_SCALE_SIZE,
         batch_size=BATCH_SIZE,
         class_mode='binary')
     dev_generator = test_datagen.flow_from_directory(
         DEV_IMAGE_DIR,
-        target_size=(150, 150),
+        target_size=IMAGE_SCALE_SIZE,
         batch_size=BATCH_SIZE,
         class_mode='binary')
     if debug:
@@ -223,6 +227,28 @@ def train_model(model, partition, augment=False, debug=False):
     plot_history(history)
 
 
+def get_model():
+    """Returns the model."""
+    model = models.Sequential()
+    model.add(layers.Conv2D(32, (3, 3), activation='relu',
+                            input_shape=MODEL_INPUT_DIM))
+    model.add(layers.MaxPooling2D((2, 2)))
+    model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+    model.add(layers.MaxPooling2D((2, 2)))
+    model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+    model.add(layers.MaxPooling2D((2, 2)))
+    model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+    model.add(layers.MaxPooling2D((2, 2)))
+    model.add(layers.Flatten())
+    model.add(layers.Dropout(0.5))
+    model.add(layers.Dense(512, activation='relu'))
+    model.add(layers.Dense(1, activation='sigmoid'))
+    model.compile(loss='binary_crossentropy',
+                  optimizer=optimizers.RMSprop(lr=1e-4),
+                  metrics=['acc'])
+    return model
+
+
 def main():
     """Runs the program."""
     partition, labels = get_partition_and_labels()
@@ -231,8 +257,8 @@ def main():
     print('Test examples: {0}'.format(len(partition['test'])))
     print('Fraction positive examples (train, val only): {0}/{1}'.format(sum(labels.values()), len(labels.keys())))
     build_dataset(partition, labels)
-    # TODO just need the model
-    train_model(None, partition)
+    model = get_model()
+    train_model(model, partition)
 
 
 if __name__ == '__main__':

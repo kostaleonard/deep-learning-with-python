@@ -57,4 +57,5 @@ class DataGenerator(keras.utils.Sequence):
             img = load_img(os.path.join(self.data_dir, id_str), target_size=(self.dim[0], self.dim[1]))
             X[i, :] = img_to_array(img) / 255.
             y[i] = self.labels[id_str]
-        return X, keras.utils.to_categorical(y, num_classes=self.n_classes)
+        #return X, keras.utils.to_categorical(y, num_classes=self.n_classes)
+        return X, y

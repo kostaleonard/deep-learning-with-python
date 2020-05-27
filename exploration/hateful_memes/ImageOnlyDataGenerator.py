@@ -10,7 +10,7 @@ import keras
 from keras.preprocessing.image import load_img, img_to_array
 
 
-class DataGenerator(keras.utils.Sequence):
+class ImageOnlyDataGenerator(keras.utils.Sequence):
     """Generates data for Keras models."""
 
     def __init__(self, id_list, labels, dim, data_dir, n_classes,

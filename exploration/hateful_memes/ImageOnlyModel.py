@@ -20,21 +20,12 @@ import numpy as np
 import shutil
 import cv2
 import json
-from exploration.hateful_memes.ImageOnlyDataGenerator import DataGenerator
+from exploration.hateful_memes.ImageOnlyDataGenerator import ImageOnlyDataGenerator
 # If you don't have plaidml, get rid of this line and the try-except:
 from plaidml.exceptions import Unknown
 
 DATASET_BASE_DIR = '/Users/leo/Documents/Datasets/hateful_memes_data'
 RAW_IMAGE_DIR = os.path.join(DATASET_BASE_DIR, 'img')
-TRAIN_IMAGE_DIR = os.path.join(DATASET_BASE_DIR, 'train')
-TRAIN_IMAGE_POS_DIR = os.path.join(TRAIN_IMAGE_DIR, 'pos')
-TRAIN_IMAGE_NEG_DIR = os.path.join(TRAIN_IMAGE_DIR, 'neg')
-DEV_IMAGE_DIR = os.path.join(DATASET_BASE_DIR, 'dev')
-DEV_IMAGE_POS_DIR = os.path.join(DEV_IMAGE_DIR, 'pos')
-DEV_IMAGE_NEG_DIR = os.path.join(DEV_IMAGE_DIR, 'neg')
-TEST_IMAGE_DIR = os.path.join(DATASET_BASE_DIR, 'test')
-TEST_IMAGE_POS_DIR = os.path.join(TEST_IMAGE_DIR, 'pos')
-TEST_IMAGE_NEG_DIR = os.path.join(TEST_IMAGE_DIR, 'neg')
 MODEL_SAVE_DIR = '/Users/leo/PycharmProjects/py_deep_learning/resources/hateful_memes/saved_models'
 PREDICTION_OUTPUT_DIR = '/Users/leo/PycharmProjects/py_deep_learning/resources/hateful_memes/predictions'
 EPOCHS = 10
@@ -90,65 +81,6 @@ def deprocess_image(x):
     return x
 
 
-def build_dataset(partition, labels):
-    """Builds the dataset from the download directory. The partition
-    defines the image files used in training, development, and testing."""
-    if not os.path.exists(TRAIN_IMAGE_DIR):
-        os.mkdir(TRAIN_IMAGE_DIR)
-    if not os.path.exists(TRAIN_IMAGE_POS_DIR):
-        os.mkdir(TRAIN_IMAGE_POS_DIR)
-    if not os.path.exists(TRAIN_IMAGE_NEG_DIR):
-        os.mkdir(TRAIN_IMAGE_NEG_DIR)
-    if not os.path.exists(DEV_IMAGE_DIR):
-        os.mkdir(DEV_IMAGE_DIR)
-    if not os.path.exists(DEV_IMAGE_POS_DIR):
-        os.mkdir(DEV_IMAGE_POS_DIR)
-    if not os.path.exists(DEV_IMAGE_NEG_DIR):
-        os.mkdir(DEV_IMAGE_NEG_DIR)
-    if not os.path.exists(TEST_IMAGE_DIR):
-        os.mkdir(TEST_IMAGE_DIR)
-    if not os.path.exists(TEST_IMAGE_POS_DIR):
-        os.mkdir(TEST_IMAGE_POS_DIR)
-    if not os.path.exists(TEST_IMAGE_NEG_DIR):
-        os.mkdir(TEST_IMAGE_NEG_DIR)
-    num_existing_train = len(os.listdir(TRAIN_IMAGE_POS_DIR)) + \
-        len(os.listdir(TRAIN_IMAGE_NEG_DIR))
-    num_existing_dev = len(os.listdir(DEV_IMAGE_POS_DIR)) + \
-        len(os.listdir(DEV_IMAGE_NEG_DIR))
-    num_existing_test = len(os.listdir(TEST_IMAGE_POS_DIR)) + \
-        len(os.listdir(TEST_IMAGE_NEG_DIR))
-    if num_existing_train == len(partition['train']) and \
-            num_existing_dev == len(partition['dev']) and \
-            num_existing_test == len(partition['test']):
-        print('Dataset appears to be built already; skipping build.')
-        return
-    for fname in partition['train']:
-        src = os.path.join(RAW_IMAGE_DIR, fname)
-        if labels[fname] == 1:
-            dst = os.path.join(TRAIN_IMAGE_POS_DIR, fname)
-        else:
-            dst = os.path.join(TRAIN_IMAGE_NEG_DIR, fname)
-        shutil.copyfile(src, dst)
-    for fname in partition['dev']:
-        src = os.path.join(RAW_IMAGE_DIR, fname)
-        if labels[fname] == 1:
-            dst = os.path.join(DEV_IMAGE_POS_DIR, fname)
-        else:
-            dst = os.path.join(DEV_IMAGE_NEG_DIR, fname)
-        shutil.copyfile(src, dst)
-    for fname in partition['test']:
-        src = os.path.join(RAW_IMAGE_DIR, fname)
-        # They didn't give us the labels for the test data, so this is just to make the generator work.
-        dst = os.path.join(TEST_IMAGE_NEG_DIR, fname)
-        shutil.copyfile(src, dst)
-    print('Total training images: {0}'.format(len(os.listdir(
-        TRAIN_IMAGE_DIR))))
-    print('Total dev images: {0}'.format(len(os.listdir(
-        DEV_IMAGE_DIR))))
-    print('Total test images: {0}'.format(len(os.listdir(
-        TEST_IMAGE_DIR))))
-
-
 def get_values_and_labels(json_filename):
     """Returns a 2-tuple where the first element is the list of
     filenames specified in the json file, and the second element is the
@@ -188,10 +120,10 @@ def get_partition_and_labels():
 
 def train_model(model, partition, labels, augment=False):
     """Trains the model."""
-    train_generator = DataGenerator(partition['train'], labels,
-                                    MODEL_INPUT_DIM, RAW_IMAGE_DIR, 2)
-    dev_generator = DataGenerator(partition['dev'], labels,
-                                  MODEL_INPUT_DIM, RAW_IMAGE_DIR, 2)
+    train_generator = ImageOnlyDataGenerator(partition['train'], labels,
+                                             MODEL_INPUT_DIM, RAW_IMAGE_DIR, 2)
+    dev_generator = ImageOnlyDataGenerator(partition['dev'], labels,
+                                           MODEL_INPUT_DIM, RAW_IMAGE_DIR, 2)
     start = time.time()
     history = model.fit_generator(
         train_generator,
@@ -201,7 +133,7 @@ def train_model(model, partition, labels, augment=False):
         validation_steps=len(partition['dev']) // BATCH_SIZE)
     stop = time.time()
     print('Training time: {0}'.format(stop - start))
-    model_fname = os.path.join(MODEL_SAVE_DIR, str(datetime.now()).replace(' ', '_'))
+    model_fname = os.path.join(MODEL_SAVE_DIR, 'img_{0}'.format(str(datetime.now()).replace(' ', '_')))
     model.save(model_fname)
     plot_history(history)
 
@@ -235,7 +167,6 @@ def main():
     print('Validation examples: {0}'.format(len(partition['dev'])))
     print('Test examples: {0}'.format(len(partition['test'])))
     print('Fraction positive examples (train, val only): {0}/{1}'.format(sum(labels.values()), len(labels.keys())))
-    build_dataset(partition, labels)
     model = get_model()
     train_model(model, partition, labels)
 

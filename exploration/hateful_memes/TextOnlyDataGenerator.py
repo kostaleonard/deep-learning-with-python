@@ -52,7 +52,7 @@ class TextOnlyDataGenerator(keras.utils.Sequence):
         Transforms the given string IDs in id_list_batch into a batch
         of data."""
         X = np.zeros((len(id_list_batch), self.seq_length), dtype='float32')
-        y = np.zeros(len(id_list_batch), dtype='uint8')
+        y = np.zeros(len(id_list_batch), dtype='int32')
         for i, id_str in enumerate(id_list_batch):
             with open(os.path.join(self.data_dir, id_str.replace('.png', '.txt')), 'r') as infile:
                 text = infile.read()

@@ -32,8 +32,10 @@ TEST_LINES = os.path.join(DATASET_BASE_DIR, 'test.jsonl')
 TEXT_DIR = os.path.join(DATASET_BASE_DIR, 'text')
 MODEL_SAVE_DIR = '/Users/leo/PycharmProjects/py_deep_learning/resources/hateful_memes/saved_models'
 PREDICTION_OUTPUT_DIR = '/Users/leo/PycharmProjects/py_deep_learning/resources/hateful_memes/predictions'
-TOKENIZER_NUM_WORDS = 1000
-TEXT_SEQUENCE_LENGTH = 20
+# There are 9691 words in the dataset.
+TOKENIZER_NUM_WORDS = 9691
+# Longest sequence is 77 words.
+TEXT_SEQUENCE_LENGTH = 30
 EPOCHS = 10
 BATCH_SIZE = 20
 IMAGE_SCALE_SIZE = (150, 150)
@@ -186,7 +188,8 @@ def train_model(model, partition, labels, tokenizer, augment=False):
         steps_per_epoch=len(partition['train']) // BATCH_SIZE,
         epochs=EPOCHS,
         validation_data=dev_generator,
-        validation_steps=len(partition['dev']) // BATCH_SIZE)
+        validation_steps=len(partition['dev']) // BATCH_SIZE,
+        class_weight={0: 1, 1: 3})
     stop = time.time()
     print('Training time: {0}'.format(stop - start))
     model_fname = os.path.join(MODEL_SAVE_DIR, 'text_{0}'.format(str(datetime.now()).replace(' ', '_')))
@@ -198,11 +201,37 @@ def get_model():
     """Returns the model."""
     model = Sequential()
     model.add(layers.Embedding(TOKENIZER_NUM_WORDS, EMBEDDING_SIZE, input_length=TEXT_SEQUENCE_LENGTH))
-    model.add(layers.Flatten())
+    model.add(layers.SimpleRNN(32))
     model.add(layers.Dense(1, activation='sigmoid'))
     model.compile(optimizer='rmsprop', loss='binary_crossentropy',
                   metrics=['acc'])
     return model
+
+
+def test_labels(partition, labels, tokenizer):
+    """Checks the labels to make sure that they are getting fed into
+    the model correctly. This is just a quick and dirty check, not
+    meant to be pretty."""
+    train_generator = TextOnlyDataGenerator(
+        partition['train'], labels, TEXT_SEQUENCE_LENGTH, TEXT_DIR, 2, tokenizer)
+    num_mismatched = 0
+    sample_count = 0
+    for batch in train_generator:
+        samples, batch_labels = batch
+        for i in range(len(samples)):
+            sample = samples[i] if 0 not in samples[i] else samples[i][:list(samples[i]).index(0)]
+            sentence = ' '.join([tokenizer.index_word[int(word_num)] for word_num in sample])
+            for fname in os.listdir(TEXT_DIR):
+                with open(os.path.join(TEXT_DIR, fname), 'r') as infile:
+                    if sentence in infile.read().strip():
+                        if fname.replace('.txt', '.png') in labels and labels[fname.replace('.txt', '.png')] != batch_labels[i]:
+                            print('Mismatched labels: {0}---{1}'.format(sentence, fname))
+                            num_mismatched += 1
+                            break
+            sample_count += 1
+        if sample_count >= 1000:
+            break
+    print('Number mismatched: {0}/{1}'.format(num_mismatched, sample_count))
 
 
 def main():

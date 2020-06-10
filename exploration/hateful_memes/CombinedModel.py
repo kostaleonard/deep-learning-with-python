@@ -7,7 +7,7 @@ from keras import models
 from keras import optimizers
 from keras.models import Sequential
 from keras.models import load_model
-from keras.applications import VGG16
+from keras.applications import InceptionResNetV2
 from keras.applications.vgg16 import preprocess_input, decode_predictions
 from keras.preprocessing import image
 from keras.preprocessing.image import ImageDataGenerator
@@ -192,14 +192,9 @@ def train_model(model, partition, labels, tokenizer, augment=False):
     plot_history(history)
 
 
-def get_model():
-    """Returns the model."""
-    text_input = layers.Input(shape=TEXT_INPUT_DIM, dtype='float32', name='text')
-    x1 = layers.Embedding(TOKENIZER_NUM_WORDS, EMBEDDING_SIZE, input_length=TEXT_SEQUENCE_LENGTH)(text_input)
-    x1 = layers.LSTM(32)(x1)
-
-    img_input = layers.Input(shape=IMAGE_INPUT_DIM, name='img')
-    x2 = layers.Conv2D(32, (3, 3), activation='relu', input_shape=IMAGE_INPUT_DIM)(img_input)
+def get_image_model_original(input_layer):
+    """Returns a non-pretrained image model."""
+    x2 = layers.Conv2D(32, (3, 3), activation='relu', input_shape=IMAGE_INPUT_DIM)(input_layer)
     x2 = layers.MaxPooling2D((2, 2))(x2)
     x2 = layers.Conv2D(64, (3, 3), activation='relu')(x2)
     x2 = layers.MaxPooling2D((2, 2))(x2)
@@ -209,6 +204,33 @@ def get_model():
     x2 = layers.MaxPooling2D((2, 2))(x2)
     x2 = layers.Flatten()(x2)
     x2 = layers.Dropout(0.5)(x2)
+    return x2
+
+
+def get_image_model_pretrained(input_layer):
+    """Returns a pretrained image model."""
+    conv_base = InceptionResNetV2(weights='imagenet',
+                                  include_top=False,
+                                  input_shape=IMAGE_INPUT_DIM)
+    print('Number of trainable weights before freezing conv_base: {0}'.format(
+        len(conv_base.trainable_weights)))
+    conv_base.trainable = False
+    print('Number of trainable weights after freezing conv_base: {0}'.format(
+        len(conv_base.trainable_weights)))
+    x2 = conv_base(input_layer)
+    x2 = layers.Flatten()(x2)
+    return x2
+
+
+def get_model():
+    """Returns the model."""
+    text_input = layers.Input(shape=TEXT_INPUT_DIM, dtype='float32', name='text')
+    x1 = layers.Embedding(TOKENIZER_NUM_WORDS, EMBEDDING_SIZE, input_length=TEXT_SEQUENCE_LENGTH)(text_input)
+    x1 = layers.LSTM(32)(x1)
+
+    img_input = layers.Input(shape=IMAGE_INPUT_DIM, name='img')
+    #x2 = get_image_model_original(img_input)
+    x2 = get_image_model_pretrained(img_input)
 
     concatenated = layers.concatenate([x1, x2], axis=-1)
     output = layers.Dense(512, activation='relu')(concatenated)

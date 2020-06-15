@@ -31,6 +31,9 @@ DEV_LINES = os.path.join(DATASET_BASE_DIR, 'dev.jsonl')
 TEST_LINES = os.path.join(DATASET_BASE_DIR, 'test.jsonl')
 TEXT_DIR = os.path.join(DATASET_BASE_DIR, 'text')
 RAW_IMAGE_DIR = os.path.join(DATASET_BASE_DIR, 'img')
+# Options: 50, 100, 200, 300.
+EMBEDDING_DIM = 100
+GLOVE_EMBEDDINGS_FILENAME = '/Users/leo/PycharmProjects/py_deep_learning/resources/hateful_memes/pretrained_embeddings/glove/glove.6B.{0}d.txt'.format(EMBEDDING_DIM)
 MODEL_SAVE_DIR = '/Users/leo/PycharmProjects/py_deep_learning/resources/hateful_memes/saved_models'
 PREDICTION_OUTPUT_DIR = '/Users/leo/PycharmProjects/py_deep_learning/resources/hateful_memes/predictions'
 # There are 9691 words in the dataset.
@@ -43,7 +46,6 @@ BATCH_SIZE = 20
 IMAGE_SCALE_SIZE = (150, 150)
 NUM_CHANNELS = 3
 IMAGE_INPUT_DIM = IMAGE_SCALE_SIZE + (NUM_CHANNELS,)
-EMBEDDING_SIZE = 8
 
 
 def smooth_curve(points, factor=0.0):
@@ -192,6 +194,28 @@ def train_model(model, partition, labels, tokenizer, augment=False):
     plot_history(history)
 
 
+def get_glove_embeddings(tokenizer):
+    """Returns the Glove embedding matrix to be used as model weights."""
+    embeddings_index = {}
+    with open(GLOVE_EMBEDDINGS_FILENAME, 'r') as infile:
+        for line in infile:
+            values = line.split()
+            word = values[0]
+            coefs = np.asarray(values[1:], dtype='float32')
+            embeddings_index[word] = coefs
+    print('Found {0} pretrained word vectors.'.format(len(embeddings_index)))
+    embedding_matrix = np.zeros((TOKENIZER_NUM_WORDS, EMBEDDING_DIM))
+    found = 0
+    for word, i in tokenizer.word_index.items():
+        if i < TOKENIZER_NUM_WORDS:
+            embedding_vector = embeddings_index.get(word)
+            if embedding_vector is not None:
+                found += 1
+                embedding_matrix[i] = embedding_vector
+    print('Found pretrained vectors for {0} words in the tokenizer.'.format(found))
+    return embedding_matrix
+
+
 def get_image_model_original(input_layer):
     """Returns a non-pretrained image model."""
     x2 = layers.Conv2D(32, (3, 3), activation='relu', input_shape=IMAGE_INPUT_DIM)(input_layer)
@@ -212,21 +236,39 @@ def get_image_model_pretrained(input_layer):
     conv_base = InceptionResNetV2(weights='imagenet',
                                   include_top=False,
                                   input_shape=IMAGE_INPUT_DIM)
-    print('Number of trainable weights before freezing conv_base: {0}'.format(
+    print('Number of trainable weights in conv_base before freezing conv_base: {0}'.format(
         len(conv_base.trainable_weights)))
     conv_base.trainable = False
-    print('Number of trainable weights after freezing conv_base: {0}'.format(
+    print('Number of trainable weights in conv_base after freezing conv_base: {0}'.format(
         len(conv_base.trainable_weights)))
     x2 = conv_base(input_layer)
     x2 = layers.Flatten()(x2)
     return x2
 
 
-def get_model():
+def get_text_model_original(input_layer):
+    """Returns a non-pretrained text model."""
+    x1 = layers.Embedding(TOKENIZER_NUM_WORDS, EMBEDDING_DIM, input_length=TEXT_SEQUENCE_LENGTH)(input_layer)
+    x1 = layers.LSTM(32)(x1)
+    return x1
+
+
+def get_text_model_pretrained(input_layer, tokenizer):
+    """Returns a pretrained text model."""
+    pretrained_embeddings = get_glove_embeddings(tokenizer)
+    layer1 = layers.Embedding(TOKENIZER_NUM_WORDS, EMBEDDING_DIM, input_length=TEXT_SEQUENCE_LENGTH)
+    x1 = layer1(input_layer)
+    x1 = layers.Flatten()(x1)
+    layer1.set_weights([pretrained_embeddings])
+    layer1.trainable = False
+    return x1
+
+
+def get_model(tokenizer):
     """Returns the model."""
     text_input = layers.Input(shape=TEXT_INPUT_DIM, dtype='float32', name='text')
-    x1 = layers.Embedding(TOKENIZER_NUM_WORDS, EMBEDDING_SIZE, input_length=TEXT_SEQUENCE_LENGTH)(text_input)
-    x1 = layers.LSTM(32)(x1)
+    #x1 = get_text_model_original(text_input)
+    x1 = get_text_model_pretrained(text_input, tokenizer)
 
     img_input = layers.Input(shape=IMAGE_INPUT_DIM, name='img')
     #x2 = get_image_model_original(img_input)
@@ -253,7 +295,7 @@ def main():
     texts = get_texts(partition)
     tokenizer = Tokenizer(num_words=TOKENIZER_NUM_WORDS)
     tokenizer.fit_on_texts(texts)
-    model = get_model()
+    model = get_model(tokenizer)
     train_model(model, partition, labels, tokenizer)
 
 
